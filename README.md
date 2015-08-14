@@ -16,6 +16,8 @@ implementation.  So I tried to mimic the Chrome implementation in that
  - restricts characters/inputs to the keys needed to enter the date/time
  - auto-advances between fields when appropriate (ie when hit '6' in
    month field, since there's no 6x months, go to next field)
+ - highlights invalid entries and current fields in focus
+ - implemented as a jQuery extension
 
 Anyway, its a quick & dirty implementation.  Has been tried on Chrome,
 Safari, IE, Firefox (relatively recent versions, not sure about older).  
@@ -23,6 +25,5 @@ Safari, IE, Firefox (relatively recent versions, not sure about older).
 Depends on jquery UI datepicker for graphical date selection (optional)
 and moment.js for date/time parsing/formatting (not so optional).  
 
-
-
+Has not been optimized, minimized, stress tested ...
 
