@@ -181,8 +181,6 @@ $.fn.selectRange = function(start, end) {
 
 
 
-
-
   // Internals...
   $._dtpicker = function(elm, settings) {
 
@@ -201,26 +199,8 @@ $.fn.selectRange = function(start, end) {
       currentDt = moment( currentDtVal, this.settings.format);
       if(!currentDt.isValid() ) currentDt = moment( currentDtVal );
     }
-    // Initialize year, month, day, hour, minute, second, etc based on
-    // current date/time in input field
-    if( currentDt && currentDt.isValid() ) {
-      this.year = currentDt.get('year');
-      this.month = currentDt.get('month'); // off by 1 from display...
-      this.day = currentDt.get('date');
-      this.hour = currentDt.get('hour');
-      this.minute = currentDt.get('minute');
-      this.second = currentDt.get('second');
-      if(this.hour > 11) this.ampm = 'PM';
-      else this.ampm = 'AM';
-      
-      // May have read input from one format and be putting it in
-      // another, so reset the elements value to a string in the desired
-      // format (ie can ready input as 2015-01-01T11:19:45z but display
-      // it as MM/DD/YYYY HH:MM - just trying to be flexible
-      var val = this.toString();
-      $(elm).val( val );
-    }
-    else $(elm).val( settings.format.toLowerCase() ); // when showing formats in display, use all lower case
+
+    this.setMoment( currentDt );
 
     // need to capture focus events, key press events, and clicks (ie if cursor moved)
     // keypress returns false to preventDefault actions (so keys don't // show in input)
@@ -374,6 +354,37 @@ $.fn.selectRange = function(start, end) {
   $._dtpicker.prototype.getDateComponents = function() {
     return { year: this.year, month: this.month, day: this.day, 
     hour: this.hour, minute: this.minute, second: this.second , ampm: this.ampm };
+  };
+
+
+  
+  // setDate
+  // Set the date/time from javascript Date object
+  $._dtpicker.prototype.setDate = function( d ) {
+    return this.setMoment( moment( d ) ) ;
+  }
+  $._dtpicker.prototype.setMoment = function( d ) {
+    // Initialize year, month, day, hour, minute, second, etc 
+    
+    if( d && d.isValid() ) {
+      this.year = d.get('year');
+      this.month = d.get('month'); // off by 1 from display...
+      this.day = d.get('date');
+      this.hour = d.get('hour');
+      this.minute = d.get('minute');
+      this.second = d.get('second');
+      if(this.hour > 11) this.ampm = 'PM';
+      else this.ampm = 'AM';
+      
+      // May have read input from one format and be putting it in
+      // another, so reset the elements value to a string in the desired
+      // format (ie can ready input as 2015-01-01T11:19:45z but display
+      // it as MM/DD/YYYY HH:MM - just trying to be flexible
+      var val = this.toString();
+      $(this.elm).val( val );
+    }
+    else $(this.elm).val( this.settings.format.toLowerCase() ); // when showing formats in display, use all lower case
+
   };
 
 
