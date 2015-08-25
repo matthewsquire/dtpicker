@@ -187,6 +187,7 @@ $.fn.selectRange = function(start, end) {
     // Save element and settings
     this.elm = elm;
     this.settings = settings; 
+    this.datepickerOpts = $.extend({}, this.settings.datepickerOpts );
 
     // Save this for callbacks
     var thisdtp = this;
@@ -211,7 +212,7 @@ $.fn.selectRange = function(start, end) {
 
 
     // Create a hidden input field for the datepicker widget (if applicable)
-    if( this.settings.datepickerOpts && this.settings.datepickerOpts.buttonImage ) {
+    if( this.datepickerOpts && this.datepickerOpts.buttonImage ) {
       // Create hidden input and put it after this element
       var calinput = $('<input>').attr('hidden', true);
       if( elm.id ) calinput.attr('id', elm.id+'_dtpickerHiddenDate')
@@ -223,8 +224,8 @@ $.fn.selectRange = function(start, end) {
       // For onSelect, we process the date from the calendar widget and
       // use it here, refreshing our elements display, and then call any
       // supplied onSelect
-      var oldOnSelect = this.settings.datepickerOpts.onSelect;
-      this.settings.datepickerOpts.onSelect = function( d, inp ) {
+      var oldOnSelect = this.datepickerOpts.onSelect;
+      this.datepickerOpts.onSelect = function( d, inp ) {
         var spl = d.split('-');
         thisdtp.year = parseInt(spl[0]);
         thisdtp.month = parseInt(spl[1])-1;
@@ -233,8 +234,8 @@ $.fn.selectRange = function(start, end) {
         thisdtp.refresh();
         if(oldOnSelect) oldOnSelect( d, inp );
       };
-      this.settings.datepickerOpts.dateFormat = 'yy-mm-dd';
-      calinput.datepicker( this.settings.datepickerOpts );
+      this.datepickerOpts.dateFormat = 'yy-mm-dd';
+      calinput.datepicker( this.datepickerOpts );
     } // end hidden input for datepicker
   }; // end _dtpicker
 
