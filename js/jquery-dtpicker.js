@@ -442,7 +442,7 @@ $.fn.selectRange = function(start, end) {
   $._dtpicker.prototype.keypressHandler = function( ev ) {
     var thisdtp = this;
     thisdtp.currentPosition = $( ev.target ).getCursorPosition();
-    thisdtp.newChar = thisdtp.keyCodeToChar( ev.keyCode );
+    thisdtp.newChar = thisdtp.keyCodeToChar( ev.keyCode ? ev.keyCode : ev.charCode ); // Firefox currently returns in charCode
 
 
     if( thisdtp.newChar === undefined ) { // ignorable key
