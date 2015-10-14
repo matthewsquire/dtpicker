@@ -162,23 +162,35 @@ $.fn.selectRange = function(start, end) {
     if(settings.datepickerOpts && settings.datepickerOpts.buttonImage) settings.useDatepicker = true;
     else settings.useDatepicker = false;
 
+
+    // Public methods
+    this.getMoment = function() {
+      return $.dtpicker( this ).getMoment();
+    };
+    this.getDate = function() {
+      return $.dtpicker( this ).getDate();
+    };
+    this.getDateComponents = function() {
+      return $.dtpicker( this ).getDateComponents();
+    };
+    this.setMoment = function(d) {
+      return $.dtpicker( this ).setMoment(d);
+    };
+    this.setDate = function(d) {
+      return $.dtpicker( this ).setDate(d);
+    };
+
     return this.each(function() {
       $.dtpicker(this, settings);
     });
   };
+
 
   $.dtpicker = function (elm, settings) {
     var e = $(elm)[0];
     // Use existing or create one
     return e.dtpicker || (e.dtpicker = new jQuery._dtpicker(e, settings));
   };
-
-
-  // Initial version....
-  $.dtpicker.version = '0.1';
-
-
-
 
 
   // Internals...
@@ -202,6 +214,19 @@ $.fn.selectRange = function(start, end) {
     }
 
     this.setMoment( currentDt );
+    
+    // true if haven't entered character in field yet
+    this.firstInField = true;
+
+    // each field true if we use/require them in the format
+    this.requiredFields = { };
+    this.requiredFields.year = ( this.settings.format.indexOf('YY') >= 0 ? true : false );
+    this.requiredFields.month = ( this.settings.format.indexOf('MM') >= 0 ? true : false );
+    this.requiredFields.day = ( this.settings.format.indexOf('DD') >= 0 ? true : false );
+    this.requiredFields.hour = ( this.settings.format.indexOf('hh') >= 0 ? true : false );
+    this.requiredFields.minute = ( this.settings.format.indexOf('mm') >= 0 ? true : false );
+    this.requiredFields.second = ( this.settings.format.indexOf('ss') >= 0 ? true : false );
+    this.requiredFields.ampm = ( this.settings.format.indexOf('aa') >= 0 ? true : false );
 
     // need to capture focus events, key press events, and clicks (ie if cursor moved)
     // keypress returns false to preventDefault actions (so keys don't // show in input)
@@ -356,6 +381,17 @@ $.fn.selectRange = function(start, end) {
     return { year: this.year, month: this.month, day: this.day, 
     hour: this.hour, minute: this.minute, second: this.second , ampm: this.ampm };
   };
+  $._dtpicker.prototype.getMoment = function() {
+    if( ( this.year === undefined && this.requiredFields.year ) ||
+        ( this.month === undefined && this.requiredFields.month ) ||
+        ( this.day === undefined && this.requiredFields.day ) ||
+        ( this.hour === undefined && this.requiredFields.hour ) ||
+        ( this.minute === undefined && this.requiredFields.minute ) ||
+        ( this.second === undefined && this.requiredFields.second ) ||
+        ( this.ampm === undefined && this.requiredFields.ampm ) ) return null; // invalid
+
+    return moment( this.getDateComponents() );
+  };
 
 
   
@@ -365,8 +401,8 @@ $.fn.selectRange = function(start, end) {
     return this.setMoment( moment( d ) ) ;
   }
   $._dtpicker.prototype.setMoment = function( d ) {
-    // Initialize year, month, day, hour, minute, second, etc 
     
+    // Initialize year, month, day, hour, minute, second, etc 
     if( d && d.isValid() ) {
       this.year = d.get('year');
       this.month = d.get('month'); // off by 1 from display...
@@ -384,8 +420,10 @@ $.fn.selectRange = function(start, end) {
       var val = this.toString();
       $(this.elm).val( val );
     }
-    else $(this.elm).val( this.settings.format.toLowerCase() ); // when showing formats in display, use all lower case
-
+    else {
+      this.year = this.month = this.day = this.hour = this.minute = this.second = this.ampm = undefined;
+      $(this.elm).val( this.settings.format.toLowerCase() ); // when showing formats in display, use all lower case
+    }
   };
 
 
@@ -425,6 +463,7 @@ $.fn.selectRange = function(start, end) {
     var p = $(this.elm).getCursorPosition();
     this.currentPosition = p;
     this.highlightDtSection( p );
+    this.firstInField = true; 
   };
 
   // blur handler - call give blur fn
@@ -460,13 +499,19 @@ $.fn.selectRange = function(start, end) {
 
     if( this.advanceChars[ this.newChar ] ) {
       pos = this.nextFieldPosition();
+      this.firstInField = true;
     }
     else if( c == 'Y') { // year
       if( this.newChar == '\b' ) this.year = undefined;
       else if( !$.isNumeric( this.newChar ) ) {} // skip if non-numeric 
-      else if( this.year === undefined ) this.year = parseInt( this.newChar );
+      else if( this.year === undefined ) {
+        this.year = parseInt( this.newChar );
+        this.firstInField = false; 
+      }
       else {
-        var y = 10*this.year + parseInt( this.newChar );
+        var y;
+        if( this.firstInField ) { y = parseInt( this.newChar ); this.firstInField = false; }
+        else y = 10*this.year + parseInt( this.newChar );
         if(y < 3000) this.year = y;
         else this.year = parseInt( this.newChar );
         if( 10 * this.year > 3000) pos = this.nextFieldPosition();
@@ -479,11 +524,15 @@ $.fn.selectRange = function(start, end) {
         this.month = parseInt(this.newChar)-1;
         if(this.month < 0) this.month = 0;
         if( this.month > 0 ) pos = this.nextFieldPosition();
+        this.firstInField = false;
       }
       else {
-        this.month = 10 * (this.month+1) + parseInt(this.newChar)-1;
-        if(this.month > 11) this.month = parseInt(this.newChar)-1;
-        pos = this.nextFieldPosition();
+        var m; 
+        if( this.firstInField ) { m = parseInt( this.newChar )-1; this.firstInField = false; }
+        else m = 10*(this.month+1) + parseInt( this.newChar )-1;
+        if( m < 12 ) { this.month = m; }
+        else this.month = parseInt( this.newChar )-1;
+        if(10 * (this.month+1) > 11) pos = this.nextFieldPosition();
       }
     }
     else if( c == 'D' ) { // day of month
@@ -491,9 +540,12 @@ $.fn.selectRange = function(start, end) {
       else if( !$.isNumeric( this.newChar ) ) {}  // skip if non-numeric 
       else if( this.day === undefined )  { 
         this.day = this.newChar;
+        this.firstInField = false; 
       }
       else {
-        var d = 10 * this.day + parseInt( this.newChar );
+        var d;
+        if( this.firstInField ) { d = parseInt( this.newChar ); this.firstInField = false; }
+        else d = 10*this.day + parseInt( this.newChar );
         if( d <= 31 ) {
           this.day = d;
         }
@@ -504,9 +556,14 @@ $.fn.selectRange = function(start, end) {
     }
     else if( c == 'h' ) { // hour
       if( !$.isNumeric( this.newChar ) ) {}  // skip if non-numeric 
-      else if( this.hour === undefined ) this.hour = parseInt( this.newChar );
+      else if( this.hour === undefined ) {
+        this.hour = parseInt( this.newChar );
+        this.firstInField = false; 
+      }
       else {
-        var h = 10 * this.hour + parseInt( this.newChar );
+        var h;
+        if( this.firstInField ) { h = parseInt( this.newChar ); this.firstInField = false; }
+        else h = 10*this.hour + parseInt( this.newChar );
         if( this.settings.use24Hour && h > 23 ) h = parseInt( this.newChar );
         else if( !this.settings.use24Hour && h > 12 ) h = parseInt( this.newChar );
 
@@ -518,22 +575,32 @@ $.fn.selectRange = function(start, end) {
     }
     else if( c == 'm' ) { // minute
       if( !$.isNumeric( this.newChar ) ) { } // skip if non-numeric 
-      else if( this.minute === undefined ) this.minute = parseInt( this.newChar );
+      else if( this.minute === undefined ) {
+        this.minute = parseInt( this.newChar );
+        this.firstInField = false; 
+      }
       else {
-        var m = 10 * this.minute + parseInt( this.newChar );
-        if( m > 60 ) m = parseInt( this.newChar );
+        var m; 
+        if( this.firstInField ) { m = parseInt( this.newChar ); this.firstInField = false; }
+        else m = 10*this.minute + parseInt( this.newChar );
+        if( m >= 60 ) m = parseInt( this.newChar );
         this.minute = m;
-        if( 10 * this.minute > 60) pos = this.nextFieldPosition();
+        if( 10 * this.minute >= 60) pos = this.nextFieldPosition();
       }
     }
     else if( c == 's' ) { // second 
       if( !$.isNumeric( this.newChar ) ) { } // skip if non-numeric 
-      else if( this.second === undefined ) this.second = parseInt( this.newChar );
+      else if( this.second === undefined ) {
+        this.second = parseInt( this.newChar );
+        this.firstInField = false; 
+      }
       else {
-        var m = 10 * this.second + parseInt( this.newChar );
-        if( m > 60 ) m = parseInt( this.newChar );
-        this.second = m;
-        if( 10 * this.second > 60) pos = this.nextFieldPosition();
+        var s;
+        if( this.firstInField ) { s = parseInt( this.newChar ); this.firstInField = false; }
+        else s = 10*this.second + parseInt( this.newChar );
+        if( s >= 60 ) m = parseInt( this.newChar );
+        this.second = s;
+        if( 10 * this.second >= 60) pos = this.nextFieldPosition();
       }
     }
     else if( c == 'a' ) { // ampm
@@ -553,6 +620,7 @@ $.fn.selectRange = function(start, end) {
 
     // Update the value, cursor position, highlighting, and hidden input field
     $(this.elm).val( this.toString() );
+    if( pos != this.currentPosition ) this.firstInField = true;
     $(this.elm).setCursorPosition( pos );
     this.currentPosition = pos;
     this.refresh();
