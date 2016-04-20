@@ -179,6 +179,12 @@ $.fn.selectRange = function(start, end) {
     this.setDate = function(d) {
       return $.dtpicker( this ).setDate(d);
     };
+    this.hideDt = function( d ) {
+      return $.dtpicker( this ).hideDtSection();
+    };
+    this.showDt = function( d ) {
+      return $.dtpicker( this ).showDtSection();
+    };
 
     return this.each(function() {
       $.dtpicker(this, settings);
@@ -442,6 +448,22 @@ $.fn.selectRange = function(start, end) {
     while(p0 >= 0 && this.settings.format[p0] == c) p0--;
     p0++;
     $(this.elm).selectRange(p0, p1);
+  };
+
+
+  // hideDtSection
+  // Hide input and any other fields
+  $._dtpicker.prototype.hideDtSection = function() {
+    $(this.elm).hide();
+    $('~img:first', this.elm).hide();
+  };
+
+
+  // showDtSection
+  // Show input and any other fields
+  $._dtpicker.prototype.showDtSection = function() {
+    $(this.elm).show();
+    $('~img:first', this.elm).show();
   };
 
 
