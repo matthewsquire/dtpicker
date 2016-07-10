@@ -222,7 +222,7 @@ $.fn.selectRange = function(start, end) {
     this.setMoment( currentDt );
     
     // true if haven't entered character in field yet
-    this.firstInField = true;
+    this.currentChars = "";
 
     // each field true if we use/require them in the format
     this.requiredFields = { };
@@ -237,6 +237,7 @@ $.fn.selectRange = function(start, end) {
     // need to capture focus events, key press events, and clicks (ie if cursor moved)
     // keypress returns false to preventDefault actions (so keys don't // show in input)
     $(elm).keypress( function(ev) { thisdtp.keypressHandler(ev); return false;} ); 
+    $(elm).keydown( function(ev) { thisdtp.keydownHandler(ev); } );
     $(elm).focus( function(ev) { thisdtp.focusHandler(ev) } );
     $(elm).click( function(ev) { thisdtp.clickHandler(ev) } );
     $(elm).blur( function(ev) { thisdtp.blurHandler(ev) } );
@@ -278,13 +279,13 @@ $.fn.selectRange = function(start, end) {
   // TODO just using replace here - should we use moment?  
   $._dtpicker.prototype.toString = function( fmt ) {
     if( !fmt) fmt = this.settings.format;
-    var s = fmt.replace('YYYY', (this.year === undefined ? 'yyyy' : c3rxUtilities.padZeros(this.year, 4) ) )
-        .replace('MM', (this.month === undefined ? 'mm' : c3rxUtilities.padZeros( this.month + 1, 2 ) ) )
-        .replace('DD', (this.day === undefined ? 'dd' : c3rxUtilities.padZeros( this.day, 2 ) ) )
-        .replace('hh', (this.hour === undefined ? 'hh' : c3rxUtilities.padZeros( this.settings.use24Hour ? this.hour : ( this.hour < 13 ? this.hour : this.hour-12 ), 2 ) ) )
-        .replace('mm', (this.minute === undefined ? 'mm' : c3rxUtilities.padZeros( this.minute, 2 ) ) )
-        .replace('ss', (this.second === undefined ? 'ss' : c3rxUtilities.padZeros( this.second, 2 ) ) )
+    var s = fmt.replace('YYYY', (this.year === undefined ? 'yyyy' : this.padZeros(this.year, 4) ) )
+        .replace('DD', (this.day === undefined ? 'dd' : this.padZeros( this.day, 2 ) ) )
+        .replace('hh', (this.hour === undefined ? 'hh' : this.padZeros( this.settings.use24Hour ? this.hour : ( this.hour < 13 ? this.hour : ((this.hour%12) || 12) ), 2 ) ) )
+        .replace('mm', (this.minute === undefined ? 'mm' : this.padZeros( this.minute, 2 ) ) )
+        .replace('ss', (this.second === undefined ? 'ss' : this.padZeros( this.second, 2 ) ) )
         .replace('aa', (this.ampm === undefined ? 'aa' : this.ampm ) )
+        .replace('MM', (this.month === undefined ? 'mm' : this.padZeros( this.month + 1, 2 ) ) ) // do this after minutes because of mm
         ;
     return s;
   };
@@ -293,6 +294,16 @@ $.fn.selectRange = function(start, end) {
   // When kepress on input box, if cursor is is under one of these
   // letters, it maps to a specific field type (ie month, year, etc )
   $._dtpicker.prototype.goodChars = { Y: true, M: true, D: true, h: true, m: true, a: true };
+
+
+
+  // Want to pad numbers so can do dates like 05/02/2015
+  $._dtpicker.prototype.padZeros = function(n, len) {
+    var s = n.toString();
+    if (s.length < len) { s = ('0000000000' + s).slice(-len); } // need enough zeros
+    return s;
+  };
+
 
  
   // updateHiddenInput
@@ -343,6 +354,79 @@ $.fn.selectRange = function(start, end) {
     97: 'a', 
     112:'p',
   };
+
+
+  $._dtpicker.prototype.shouldAdvance = function( c ) { 
+    if( c == 'Y' ) {
+      this.year = parseInt( this.currentChars.slice( -4 ) );
+      if( this.currentChars.length >= 4 ) return true;
+      return false;
+    }
+    else if( c == 'M' ) {
+      this.month = ( parseInt( this.currentChars.slice( -2 ) ) - 1) % 12; // make 0-11
+      if( this.month > 0 && this.month < 12 ) return true;
+      else if( this.month == 0 && this.currentChars.length >= 2 ) return true;
+      return false;
+    }
+    else if( c == 'D' ) {
+      this.day = parseInt( this.currentChars.slice( -2 ) ); // let moment take care of dates > 31
+      if( this.day > 3 && this.day < 32 ) return true;
+      else if( this.day > 0 && this.day < 4 && this.currentChars.length >= 2 ) return true;
+      return false;
+    }
+    else if( c == 'h' ) {
+      this.hour = parseInt( this.currentChars.slice( -2 ) );
+      if( this.settings.format.use24Hour ) {
+        this.hour = this.hour % 24;
+        if( this.hour > 11 ) this.ampm = 'PM';
+        else this.ampm = 'AM';
+        if( this.hour > 2  && this.hour < 24 ) return true;
+        else if( this.hour > 0 && this.hour < 3 && this.currentChars.length >= 2 ) return true;
+      }
+      else {
+        this.hour = this.hour % 12;
+        if( this.hour > 1  && this.hour < 13 ) { 
+          if( this.ampm == 'PM' && this.hour < 12 ) this.hour += 12;
+          return true;
+        }
+        else if( this.hour == 1 && this.currentChars.length >= 2 ) {
+          if( this.ampm == 'PM' ) this.hour = 13;
+          return true;
+        }
+      }
+      return false;
+    }
+    else if( c == 'm' ) {
+      this.minute  = parseInt( this.currentChars.slice( -2 ) );
+      if( this.minute > 5 && this.minute < 60 ) return true;
+      else if ( this.minute >= 0 && this.minute < 6 && this.currentChars.length >=2 ) return true;
+
+      return false;
+    }
+    else if( c == 's' ) {
+      this.second = parseInt( this.currentChars.slice( -2 ) );
+      if( this.second > 5 && this.second < 60 ) return true;
+      else if ( this.second >= 0 && this.second < 6 && this.currentChars.length >=2 ) return true;
+
+      return false;
+    }
+    else if( c == 'a' ) {
+      var val = this.newChar;
+      if( val == 'a' ) {
+        this.ampm = 'AM';
+        return true;
+      }
+      else if( val == 'p' ) {
+        this.ampm = 'PM';
+        if( this.hour ) this.hour += 12;
+        return true;
+      }
+      return false;
+    }
+    
+    console.error('Unexpected format character:' + c );
+    return false;
+  };
   
 
   // advanceChars
@@ -369,11 +453,13 @@ $.fn.selectRange = function(start, end) {
     $(this.elm).val( this.toString() );
     $(this.elm).setCursorPosition( this.currentPosition );
     this.highlightDtSection( this.currentPosition );
+    var m = this.getMoment();
+    var ok = ( m ? m.isValid() : false );
     if( this.settings.validate ) {
-      var ok = this.settings.validate( this.getDateComponents() );
-      if( ok ) $(this.elm).removeClass('dtpicker-invalid');
-      else $(this.elm).addClass('dtpicker-invalid');
+      ok = ok && this.settings.validate( this.getDateComponents() );
     }
+    if( ok ) $(this.elm).removeClass('dtpicker-invalid');
+    else $(this.elm).addClass('dtpicker-invalid');
   };
 
 
@@ -485,7 +571,7 @@ $.fn.selectRange = function(start, end) {
     var p = $(this.elm).getCursorPosition();
     this.currentPosition = p;
     this.highlightDtSection( p );
-    this.firstInField = true; 
+    this.currentChars = "";
   };
 
   // blur handler - call give blur fn
@@ -512,141 +598,68 @@ $.fn.selectRange = function(start, end) {
       return;
     }
 
-    var c = this.settings.format[ this.currentPosition ];
+    var c = this.settings.format[ this.currentPosition ] || this.settings.format[ this.settings.format.length - 1 ] ;
     var pos = this.currentPosition;
     if( !this.goodChars[c] ) { 
       pos = this.nextFieldPosition();
       c = this.settings.format[ pos ];
     }
+    else if($.isNumeric( this.newChar) ) {
+      this.currentChars += this.newChar;
+    }
 
     if( this.advanceChars[ this.newChar ] ) {
       pos = this.nextFieldPosition();
-      this.firstInField = true;
+      this.currentChars = "";
     }
-    else if( c == 'Y') { // year
-      if( this.newChar == '\b' ) this.year = undefined;
-      else if( !$.isNumeric( this.newChar ) ) {} // skip if non-numeric 
-      else if( this.year === undefined ) {
-        this.year = parseInt( this.newChar );
-        this.firstInField = false; 
-      }
-      else {
-        var y;
-        if( this.firstInField ) { y = parseInt( this.newChar ); this.firstInField = false; }
-        else y = 10*this.year + parseInt( this.newChar );
-        if(y < 3000) this.year = y;
-        else this.year = parseInt( this.newChar );
-        if( 10 * this.year > 3000) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 'M' ) { // month
-      if( this.newChar == '\b' ) this.year = undefined;
-      else if( !$.isNumeric( this.newChar ) ) {}  // skip if non-numeric 
-      else if( this.month == undefined ) { 
-        this.month = parseInt(this.newChar)-1;
-        if(this.month < 0) this.month = 0;
-        if( this.month > 0 ) pos = this.nextFieldPosition();
-        this.firstInField = false;
-      }
-      else {
-        var m; 
-        if( this.firstInField ) { m = parseInt( this.newChar )-1; this.firstInField = false; }
-        else m = 10*(this.month+1) + parseInt( this.newChar )-1;
-        if( m < 12 ) { this.month = m; }
-        else this.month = parseInt( this.newChar )-1;
-        if(10 * (this.month+1) > 11) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 'D' ) { // day of month
-      if( this.newChar == '\b' ) this.year = undefined;
-      else if( !$.isNumeric( this.newChar ) ) {}  // skip if non-numeric 
-      else if( this.day === undefined )  { 
-        this.day = this.newChar;
-        this.firstInField = false; 
-      }
-      else {
-        var d;
-        if( this.firstInField ) { d = parseInt( this.newChar ); this.firstInField = false; }
-        else d = 10*this.day + parseInt( this.newChar );
-        if( d <= 31 ) {
-          this.day = d;
-        }
-        else this.day = parseInt( this.newChar );
-
-        if(this.day*10 > 31) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 'h' ) { // hour
-      if( !$.isNumeric( this.newChar ) ) {}  // skip if non-numeric 
-      else if( this.hour === undefined ) {
-        this.hour = parseInt( this.newChar );
-        this.firstInField = false; 
-      }
-      else {
-        var h;
-        if( this.firstInField ) { h = parseInt( this.newChar ); this.firstInField = false; }
-        else h = 10*this.hour + parseInt( this.newChar );
-        if( this.settings.use24Hour && h > 23 ) h = parseInt( this.newChar );
-        else if( !this.settings.use24Hour && h > 12 ) h = parseInt( this.newChar );
-
-        this.hour = h;
-        this.ampm = ( this.hour > 11  ? 'PM' : 'AM' );
-        if( !this.settings.use24Hour && this.hour > 1 ) pos = this.nextFieldPosition();
-        if( this.settings.use24Hour && this.hour > 2 ) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 'm' ) { // minute
-      if( !$.isNumeric( this.newChar ) ) { } // skip if non-numeric 
-      else if( this.minute === undefined ) {
-        this.minute = parseInt( this.newChar );
-        this.firstInField = false; 
-      }
-      else {
-        var m; 
-        if( this.firstInField ) { m = parseInt( this.newChar ); this.firstInField = false; }
-        else m = 10*this.minute + parseInt( this.newChar );
-        if( m >= 60 ) m = parseInt( this.newChar );
-        this.minute = m;
-        if( 10 * this.minute >= 60) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 's' ) { // second 
-      if( !$.isNumeric( this.newChar ) ) { } // skip if non-numeric 
-      else if( this.second === undefined ) {
-        this.second = parseInt( this.newChar );
-        this.firstInField = false; 
-      }
-      else {
-        var s;
-        if( this.firstInField ) { s = parseInt( this.newChar ); this.firstInField = false; }
-        else s = 10*this.second + parseInt( this.newChar );
-        if( s >= 60 ) m = parseInt( this.newChar );
-        this.second = s;
-        if( 10 * this.second >= 60) pos = this.nextFieldPosition();
-      }
-    }
-    else if( c == 'a' ) { // ampm
-      if( this.newChar == 'a' ) { 
-        this.ampm = 'AM'; 
-        if( this.hour > 12 ) this.hour -= 12;
-        pos = this.nextFieldPosition(); 
-      }
-      else if( this.newChar == 'p' ) { 
-        this.ampm = 'PM'; 
-        if( this.hour < 12 ) this.hour += 12;
-        pos = this.nextFieldPosition(); 
-      }
-      else { } // nothing
+    else if( this.shouldAdvance( c ) ) {
+      pos = this.nextFieldPosition();
+      this.currentChars = "";
     }
     
 
     // Update the value, cursor position, highlighting, and hidden input field
     $(this.elm).val( this.toString() );
-    if( pos != this.currentPosition ) this.firstInField = true;
+    if( pos != this.currentPosition )  { this.currentChars = "" ; }
     $(this.elm).setCursorPosition( pos );
     this.currentPosition = pos;
     this.refresh();
     this.updateHiddenInput();
+  };
+
+  // Detect backspace only - key press handled by keypressHandler
+  $._dtpicker.prototype.keydownHandler = function( ev ) {
+
+    // only handling backspace here - other 'real' characters handled by keypressHandler
+    // Clear out the section of the format that is being edited, replacing it with the mm/MM characters
+    // Disable normal backspace handling as we don't want the last character removed
+    var key = ( ev.keyCode ? ev.keyCode : ev.charCode );
+    if( key == 8 || key == 46 ) {
+      var thisdtp = this;
+      thisdtp.currentChars = "";
+      thisdtp.currentPosition = $(this.elm).getCursorPosition();
+
+      var c = thisdtp.settings.format[ thisdtp.currentPosition ] ;
+      // If sitting before/at a ":" or "/" type character, operate on item before it
+      if( !this.goodChars[c] && thisdtp.currentPosition > 0 ) {
+        c = thisdtp.settings.format[ --thisdtp.currentPosition ] ;
+      }
+      // Clear that value
+      if( c == 'Y' ) this.year = undefined;
+      else if( c == 'M' ) this.month = undefined;
+      else if( c == 'D' ) this.day = undefined;
+      else if( c == 'h' ) this.hour = undefined;
+      else if( c == 'm' ) this.minute = undefined;
+      else if( c == 's' ) this.second = undefined;
+      else if( c == 'a' ) this.ampm = undefined;
+      // Refresh the element based on the new value and set the cursor
+      $(this.elm).setCursorPosition( thisdtp.currentPosition );
+      this.refresh();
+      this.updateHiddenInput();
+      // Don't allow backspace to do anything else
+      ev.preventDefault();
+      return false;
+    }
   };
 
 
